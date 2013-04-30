@@ -1,0 +1,102 @@
+trk start <project> (if tracking project: stop-and-start, aka switch)
+trk start at <YYYY-MM-DD hh:mm> <project>
+trk on <project> (alias for start)
+
+  Starts tracking of a project. If 'at' is given, start-time
+  is overridden to the given time.
+
+  Future expansion:
+  If a project was already tracking, that project will be stopped
+  at the startingpoint of the new tracking, i.e. implicitly switching.
+
+trk note Comment will be timestamped
+
+  Adds a comment/note to the tracking. The note will not
+  affect tracked time, but will be included in detailed reports.
+
+trk activity <task>
+trk activity at <YYYY-MM-DD hh:mm> <task>
+
+  Starts tracking of an activity within the project; think task
+  or sub-projects. Activities will be tallied within the project
+  like the "main project", while time counts to both activity
+  and project. 
+
+  Future:
+  Only one activity can be ongoing at the same time,
+  so starting a new activity while one is ongoing stops the current
+  and starts the new one.
+
+trk main
+trk main at <YYYY-MM-DD hh:mm>
+
+  Stops tracking ongoing activity, and keeps tracking project.
+
+trk pause <optional description>
+trk back
+
+  Adds an activity to the project that is not counted on
+  the project. Pauses will be listed on detailed reports,
+  but not on terse, standard and verbose reports.
+
+trk charge <customer>
+
+  Will set a customer name as meta-information. Setting the
+  charged customer will replace any previously set value.
+
+trk status
+
+  Displays current project, charged customer (if any),
+  start time for this session, time spent on this session,
+  time spent on project total,
+  current activity with start time and time spent this session.
+
+trk stop
+trk stop at <YYYY-MM-DD hh:mm>
+trk off (alias for stop)
+
+  Stops tracking of project, with implicit stopping of any
+  current activity.
+
+trk report terse <project>
+trk report <project>
+trk report verbose <project>
+tkr report details <project>
+
+   Gives a tracking report for the given project.
+
+   Terse reports include:
+     * project name
+     * charged customer
+     * total time accumulated
+
+   Standard reports include:
+     * project name
+     * charged customer
+     * session start and end datetimes and time elapsed on session
+     * total time accumulated
+
+   Verbose reports include:
+     * project name
+     * charged customer
+     * session start and end datetimes and time elapsed on session
+     * activity start and end datetimes and time elapesd on activity
+     * note texts w/datetime
+     * time accumulated per named task
+     * total time accumulated
+
+   Detailed reports include:
+     * project name
+     * charged customer
+     * session start and end datetimes and time elapsed on session
+     * activity start and end datetimes and time elapesd on activity
+     * pauses with start, end, comment and elapsed time
+     * note texts w/datetime
+     * time accumulated per named task
+     * total time accumulated
+
+trk projects
+
+   Lists all known project names
+
+

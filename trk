@@ -2,6 +2,7 @@
 use Time::Local;
 use Digest::MD5  qw(md5_hex);
 use File::Basename;
+use POSIX;
 
 
 my $trk_dir = "$ENV{HOME}/.trk";
@@ -10,6 +11,7 @@ use constant {
 	START => 1,
 	TIMEFORMAT => 2,
 	STOP => 3,
+	EDIT => 4,
 };
 
 sub help
@@ -25,16 +27,6 @@ sub help
 	exit(-1);
 }
 
-# Input to parse_time is:
-#   * date -> date-string in the form YYYY-MM-DD
-#   * time -> time-string in the form HH:MM
-# Return value is a unix timestamp, as returned by time()
-sub parse_time ($$)
-{
-	my ( $Y, $M, $D ) = split ("-", shift );
-	my ( $h, $m ) = split(":", shift );
-	return timelocal(0, $m, $h, $D, ($M-1), $Y);
-}
 
 sub gen_puuid (;$)
 {
@@ -63,6 +55,31 @@ sub gen_puuid (;$)
         return $w;
 }
 
+# Input to parse_time is:
+#   * date -> date-string in the form YYYY-MM-DD
+#   * time -> time-string in the form HH:MM
+# Return value is a unix timestamp, as returned by time()
+sub parse_time ($$)
+{
+	my ( $Y, $M, $D ) = split ("-", shift );
+	my ( $h, $m ) = split(":", shift );
+	return timelocal(0, $m, $h, $D, ($M-1), $Y);
+}
+
+sub str2time ($)
+{
+	my $i = shift;
+	printf("%s\n", $i);
+	return 0 if not $i =~ m/(\d\d\d\d-\d\d-\d\d) (\d\d:\d\d)/;
+	return parse_time($1, $2);
+}
+
+sub time2str ($)
+{
+	my $t = shift;
+	return strftime("%Y-%m-%d %H:%M", localtime($t));
+}
+
 sub parse_arguments ($)
 {
 
@@ -86,7 +103,7 @@ sub parse_arguments ($)
 
 		$start_time = parse_time( $ARGV[2], $ARGV[3] );
 	} 
-	elsif ( ($step == START) || ($step == TASK) ) 
+	elsif ( ($step == START) || ($step == TASK) || ($step == EDIT)) 
 	{
 		shift(@ARGV);
 		$title = join(" ", @ARGV);
@@ -100,6 +117,16 @@ sub parse_arguments ($)
 	{
 		return ( $start_time, $title );
 	}
+}
+
+sub get_last_project
+{
+	return undef if ( ! -f $trk_dir . "/last" );
+	open ( CUR, "<" .  $trk_dir . "/last" ) or die ("Unable to read last project file");
+	my $id = <CUR>;
+	chomp($id);
+	close(CUR);
+	return $id;
 }
 
 sub get_current_project
@@ -203,7 +230,7 @@ sub create_project ($)
 	mkdir ( $trk_dir . "/" . $id );
 
 	open(PRO, ">" . $trk_dir . "/" . $id . "/info" ) or die ("Unable to create project medatata file!");
-	printf(PRO "title:%s", $title);
+	printf(PRO "title:%s\n", $title);
 	close(PRO);
 
 	return $id;
@@ -258,7 +285,7 @@ if ( ( $command eq "start") || ($command eq "on" ) )
 	# Will have to do more logic: if the start point is before one of the times already in the track,
 	# the file will have to be manipulated to get coherent tracking!
 	open (TRACK, ">>" . $trk_dir . "/" . $current . "/tracking" ) or die ("Unable to open file, $!");
-	printf(TRACK "[%s]", $start_time);
+	printf(TRACK "[%s]", time2str($start_time));
 	close (TRACK);
 
 	printf("Started tracking of '%s' at %s\n\n", $title, scalar localtime $start_time);
@@ -288,12 +315,46 @@ elsif ( ( $command eq "stop") || ($command eq "off" ) )
 	# the file will have to be manipulated to get coherent tracking!
 	# In addtion to this: actually do some file sanity checking!
 	open (TRACK, ">>" . $trk_dir . "/" . $current . "/tracking" ) or die ("Unable to open file, $!");
-	printf(TRACK " to [%s]\n", $stop_time);
+	printf(TRACK " to [%s]\n", time2str($stop_time));
 	close (TRACK);
 
 	unlink ( $trk_dir . "/current" );
 
 	printf("Stopped tracking of '%s' at %s\n\n", $title, scalar localtime $stop_time);
+}
+elsif ( ( $command eq "projects" ) || ( $command eq "list" )  )
+{
+	# Todo/future extensions:
+	# TODO: Sort list of names alphabetically
+	# TODO: Get total-hours for projects
+	# TODO:
+	my $projects = get_projects();
+	printf("Currently tracked project names:\n\n");
+	my $current = get_current_project();
+
+	foreach my $id ( keys $projects )
+	{
+		printf(" %s %s\n", ($id eq $current ? ">" : " " ),$projects->{$id} );
+	}
+	print("\n");
+}
+elsif ( $command eq "edit" )
+{
+
+	my ( undef, $title ) = parse_arguments(EDIT);
+	my $id = get_last_project();
+
+	if ( $title )
+	{
+		$id = get_project_id($title);
+		if ( not $id )
+		{
+			printf("No project by that name. Try 'list'\n");
+			exit(0);
+		}
+	}
+
+	system( "/usr/bin/editor " . $trk_dir . "/" . $id . "/tracking" );
 }
 else
 {

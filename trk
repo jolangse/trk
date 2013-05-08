@@ -119,44 +119,60 @@ sub parse_arguments ($)
 	}
 }
 
-sub get_last_id
+sub get_last_id (;$)
 {
-	return undef if ( ! -f $trk_dir . "/last" );
-	open ( CUR, "<" .  $trk_dir . "/last" ) or die ("Unable to read last track file");
+	my $trk_id = shift;
+	my $wrk_dir = $trk_dir;	
+	$wrk_dir = $trk_dir . "/" . $trk_id if $trk_id;
+
+	return undef if ( ! -f $wrk_dir . "/last" );
+	open ( CUR, "<" .  $wrk_dir . "/last" ) or die ("Unable to read last track file");
 	my $id = <CUR>;
 	chomp($id);
 	close(CUR);
 	return $id;
 }
 
-sub get_current_id
+sub get_current_id (;$)
 {
-	return undef if ( ! -f $trk_dir . "/current" );
-	open ( CUR, "<" .  $trk_dir . "/current" ) or die ("Unable to read current track file");
+	my $trk_id = shift;
+	my $wrk_dir = $trk_dir;	
+	$wrk_dir = $trk_dir . "/" . $trk_id if $trk_id;
+
+	return undef if ( ! -f $wrk_dir . "/current" );
+	open ( CUR, "<" .  $wrk_dir . "/current" ) or die ("Unable to read current track file");
 	my $id = <CUR>;
 	chomp($id);
 	close(CUR);
 	return $id;
 }
 
-sub set_current_id ($)
+sub set_current_id ($;$)
 {
 	my $id = shift;
-	return undef if ( -f $trk_dir . "/current" );
-	open ( CUR, ">" .  $trk_dir . "/current" ) or die ("Unable to write current track file");
+	my $trk_id = shift;
+	my $wrk_dir = $trk_dir;	
+	$wrk_dir = $trk_dir . "/" . $trk_id if $trk_id;
+
+	return undef if ( -f $wrk_dir . "/current" );
+	open ( CUR, ">" .  $wrk_dir . "/current" ) or die ("Unable to write current track file");
 	printf(CUR "%s\n", $id );
 	close(CUR);
 
-	open ( LAST, ">" .  $trk_dir . "/last" ) or die ("Unable to write last track file");
+	open ( LAST, ">" .  $wrk_dir . "/last" ) or die ("Unable to write last track file");
 	printf(LAST "%s\n", $id );
 	close(LAST);
 }
 
-sub get_tracks
+sub get_tracks (;$)
 {
+	my $trk_id = shift;
+	my $wrk_dir = $trk_dir;	
+	$wrk_dir = $trk_dir . "/" . $trk_id if $trk_id;
+
 	my %tracks;
 
-	foreach my $d ( <$trk_dir/*> )
+	foreach my $d ( <$wrk_dir/*> )
 	{
 		next if not -d $d;
 		next if not -f $d . "/info";
@@ -171,12 +187,13 @@ sub get_tracks
 
 }
 
-sub get_track_id ($)
+sub get_track_id ($;$)
 {
 	my $title = shift;
+	my $trk_id = shift;
 
 	# Get hash of track-id's and -names from get_tracks
-	my $tracks = get_tracks();
+	my $tracks = get_tracks($trk_id);
 
 	# Look up name in list
 	foreach my $id ( keys $tracks )
@@ -189,10 +206,14 @@ sub get_track_id ($)
 	return undef;
 }
 
-sub get_track_name ($)
+sub get_track_name ($;$)
 {
 	my $id = shift;
-	open(PRO, "<" . $trk_dir . "/" . $id . "/info" ) or die ("Unable to read track medatata file!");
+	my $trk_id = shift;
+	my $wrk_dir = $trk_dir;	
+	$wrk_dir = $trk_dir . "/" . $trk_id if $trk_id;
+
+	open(PRO, "<" . $wrk_dir . "/" . $id . "/info" ) or die ("Unable to read track medatata file!");
 	my $title = undef;
 	while (<PRO>)
 	{
@@ -203,57 +224,65 @@ sub get_track_name ($)
 	return $title;
 }
 
-sub create_track ($)
+sub create_track ($;$)
 {
 	my $title = shift;
+	my $trk_id = shift;
+	my $wrk_dir = $trk_dir;	
+	$wrk_dir = $trk_dir . "/" . $trk_id if $trk_id;
 
 	my $id;
 	do
 	{
 		$id = gen_puuid(8);
 	
-	} while ( -d $trk_dir . "/" . $id );
-	mkdir ( $trk_dir . "/" . $id );
+	} while ( -d $wrk_dir . "/" . $id );
+	mkdir ( $wrk_dir . "/" . $id );
 
-	open(PRO, ">" . $trk_dir . "/" . $id . "/info" ) or die ("Unable to create track medatata file!");
+	open(PRO, ">" . $wrk_dir . "/" . $id . "/info" ) or die ("Unable to create track medatata file!");
 	printf(PRO "title:%s\n", $title);
 	close(PRO);
 
 	return $id;
 }
 
-sub start_track ($$)
+sub start_track ($$;$)
 {
 	my $start_time = shift;
 	my $title = shift;
 
+	my $trk_id = shift;
+	my $wrk_dir = $trk_dir;	
+	$wrk_dir = $trk_dir . "/" . $trk_id if $trk_id;
 
-	my $current = get_current_id();
+
+
+	my $current = get_current_id($trk_id);
 	if ( not $current )
 	{
 		if ( not $title )
 		{
-			$current = get_last( );
+			$current = get_last_id( $trk_id );
 		}
 		else
 		{
-			$current = get_track_id( $title );
+			$current = get_track_id( $title, $trk_id );
 			if ( not $current )
 			{
 				printf("No track by that name! Creating a new one.\n");
-				$current = create_track($title);
+				$current = create_track($title, $trk_id);
 			}
 		}
 
 		# Break off here if we haven't gotten an ID yet.
 		return undef if not $current;
 
-		set_current_id($current);
+		set_current_id($current, $trk_id);
 
 		# First iteration is VERY naive: simply add the start time to the bottom of the tracking file
 		# Will have to do more logic: if the start point is before one of the times already in the track,
 		# the file will have to be manipulated to get coherent tracking!
-		open (TRACK, ">>" . $trk_dir . "/" . $current . "/tracking" ) or die ("Unable to open file, $!");
+		open (TRACK, ">>" . $wrk_dir . "/" . $current . "/tracking" ) or die ("Unable to open file, $!");
 		printf(TRACK "[%s]", time2str($start_time));
 		close (TRACK);
 
@@ -263,20 +292,23 @@ sub start_track ($$)
 	return undef;
 }
 
-sub close_track ($)
+sub close_track ($;$)
 {
 
 	my $stop_time = shift;
+	my $trk_id = shift;
+	my $wrk_dir = $trk_dir;	
+	$wrk_dir = $trk_dir . "/" . $trk_id if $trk_id;
 
-	my $current = get_current_id();
+	my $current = get_current_id( $trk_id );
 
-	die ("Project exists, but tracking file does not!") if ( not -f  $trk_dir . "/" . $current . "/tracking" );
+	die ("Project exists, but tracking file does not!") if ( not -f  $wrk_dir . "/" . $current . "/tracking" );
 
 	# First iteration is VERY naive: simply add the stop time to the bottom line of the tracking file
 	# Will have to do more logic: if the start point is before one of the times already in the track,
 	# the file will have to be manipulated to get coherent tracking!
 	# In addtion to this: actually do some file sanity checking!
-	open (TRACK, ">>" . $trk_dir . "/" . $current . "/tracking" ) or die ("Unable to open file, $!");
+	open (TRACK, ">>" . $wrk_dir . "/" . $current . "/tracking" ) or die ("Unable to open file, $!");
 	printf(TRACK " to [%s]\n", time2str($stop_time));
 	close (TRACK);
 

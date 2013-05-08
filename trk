@@ -3,7 +3,7 @@ use Time::Local;
 use Digest::MD5  qw(md5_hex);
 use File::Basename;
 use POSIX;
-
+use strict;
 
 my $trk_dir = "$ENV{HOME}/.trk";
 
@@ -12,6 +12,7 @@ use constant {
 	TIMEFORMAT => 2,
 	STOP => 3,
 	EDIT => 4,
+	TASK => 5,
 };
 
 sub help
@@ -170,6 +171,7 @@ sub get_tracks (;$)
 	my $wrk_dir = $trk_dir;	
 	$wrk_dir = $trk_dir . "/" . $trk_id if $trk_id;
 
+
 	my %tracks;
 
 	foreach my $d ( <$wrk_dir/*> )
@@ -178,7 +180,7 @@ sub get_tracks (;$)
 		next if not -f $d . "/info";
 
 		my $id = basename($d);
-		my $title = get_track_name( $id );
+		my $title = get_track_name( $id, $trk_id );
 
 		$tracks{$id} = $title unless not defined $title;
 	}
@@ -255,8 +257,6 @@ sub start_track ($$;$)
 	my $wrk_dir = $trk_dir;	
 	$wrk_dir = $trk_dir . "/" . $trk_id if $trk_id;
 
-
-
 	my $current = get_current_id($trk_id);
 	if ( not $current )
 	{
@@ -312,7 +312,7 @@ sub close_track ($;$)
 	printf(TRACK " to [%s]\n", time2str($stop_time));
 	close (TRACK);
 
-	unlink ( $trk_dir . "/current" );
+	unlink ( $wrk_dir . "/current" );
 }
 
 ############################################################
@@ -376,9 +376,88 @@ elsif ( ( $command eq "stop") || ($command eq "off" ) )
 	}
 	my $title = get_track_name( $current );
 
+	my $activity = get_current_id($current);
+	if ( $activity )
+	{
+		printf("An active subtask is running: '%s'. Closing it.\n", get_track_name( $activity, $current ));
+		close_track($stop_time, $current);
+	}
 	close_track($stop_time);
 
 	printf("Stopped tracking of '%s' at %s\n\n", $title, scalar localtime $stop_time);
+}
+elsif ( ( $command eq "activity") || ($command eq "task" ) )
+{
+	if ( $#ARGV < 1)
+	{
+		help(START);
+	}
+
+	my ( $start_time, $title ) = parse_arguments(START);
+
+	my $trk_id = get_current_id();
+	if ( not $trk_id )
+	{
+		printf("Starting a task/activity requires an active main track.\n");
+		exit(1);
+	}
+	else
+	{
+
+		my $current = get_current_id( $trk_id );
+		if ( not $current )
+		{
+			$current = start_track( $start_time, $title, $trk_id );
+
+			if ( not $current )
+			{
+				printf("Something weird happened.\n");
+				exit(1);
+			}
+		}
+		else
+		{
+			printf("A task/activity is being tracked: %s\n", get_track_name( $current, $trk_id ) );
+			close_track($start_time, $trk_id);
+			$current = start_track( $start_time, $title, $trk_id );
+		}
+
+		printf("Started tracking of '%s' at %s\n\n", $title, scalar localtime $start_time);
+
+	}
+
+}
+
+elsif ( $command eq "main" )
+{
+
+	if ( $#ARGV < 0)
+	{
+		help(STOP);
+	}
+
+
+	my $stop_time = parse_arguments(STOP);
+
+	my $trk_id = get_current_id();
+	if ( not $trk_id )
+	{
+		printf("Stopping a task/activity requires an active main track.\n");
+		exit(1);
+	}
+	else
+	{
+		my $current = get_current_id( $trk_id );
+		if ( not $current )
+		{
+			printf("No activity/task is currently tracked. To stop, please start first\n");
+			exit(0);
+		}
+		my $title = get_track_name( $current, $trk_id );
+		close_track($stop_time, $trk_id);
+
+		printf("Stopped tracking of '%s' at %s\n\n", $title, scalar localtime $stop_time);
+	}
 }
 elsif ( ( $command eq "projects" ) || ( $command eq "list" )  )
 {

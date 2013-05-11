@@ -6,6 +6,11 @@ use POSIX;
 use strict;
 
 my $trk_dir = "$ENV{HOME}/.trk";
+if ( $ENV{TRK_DIR} )
+{
+	if ( -d $ENV{TRK_DIR} ) { $trk_dir = $ENV{TRK_DIR} if -d $ENV{TRK_DIR}; }
+	else { printf("Environment variable TRK_DIR is not a directory\n"); exit(1); }
+}
 
 use constant {
 	START => 1,
@@ -511,7 +516,8 @@ elsif ( ( $command eq "projects" ) || ( $command eq "list" )  )
 	printf("Currently tracked project names:\n\n");
 	my $current = get_current_id();
 
-	foreach my $id ( keys %$tracks )
+	#foreach my $id ( keys %$tracks )
+	foreach my $id ( sort { $tracks->{$a} cmp $tracks->{$b} || $a cmp $b } keys %$tracks  )
 	{
 		printf(" %s %s\n", ($id eq $current ? ">" : " " ),$tracks->{$id} );
 	}
@@ -544,7 +550,9 @@ elsif ( $command eq "report" )
 	if ( keys %$activities )
 	{
 		printf("# Reporting for sub-task/activities:\n\n");
-		foreach my $id ( keys %$activities )
+
+		foreach my $id ( sort { $activities->{$a} cmp $activities->{$b} || $a cmp $b } keys %$activities )
+		#foreach my $id ( keys %$activities )
 		{
 			report( $id, $track );
 			printf("# --------------------------------------------------------------\n");

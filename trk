@@ -70,7 +70,6 @@ sub parse_time ($$)
 sub str2time ($)
 {
 	my $i = shift;
-	printf("%s\n", $i);
 	return 0 if not $i =~ m/(\d\d\d\d-\d\d-\d\d) (\d\d:\d\d)/;
 	return parse_time($1, $2);
 }
@@ -198,7 +197,7 @@ sub get_track_id ($;$)
 	my $tracks = get_tracks($trk_id);
 
 	# Look up name in list
-	foreach my $id ( keys $tracks )
+	foreach my $id ( keys %$tracks )
 	{
 		# Return ID for name
 		return $id if ( $tracks->{$id} eq $title ) 
@@ -314,6 +313,49 @@ sub close_track ($;$)
 
 	unlink ( $wrk_dir . "/current" );
 }
+
+
+sub report ($;$)
+{	
+	my $current = shift;
+	my $trk_id = shift;
+	my $wrk_dir = $trk_dir;	
+	$wrk_dir = $trk_dir . "/" . $trk_id if $trk_id;
+
+	my $total = 0;
+
+	my $name = get_track_name( $current, $trk_id );
+	printf("# Report for '%s':\n\n", $name);
+
+	open (TRACK, "<" . $wrk_dir . "/" . $current . "/tracking" ) or die ("Unable to open file, $!");
+	while ( <TRACK> )
+	{
+		next if not $_ =~ m/\[(.*)\] to \[(.*)\]/;
+		my $start = $1;
+		my $end = $2;
+		my $t_start = str2time( $start );
+		my $t_end = str2time( $end );
+		my $delta = $t_end - $t_start;
+
+		my $t = $delta;
+		my $hours = $t / 3600;
+		$t = $delta % 3600;
+		my $minutes = $t / 60;
+
+		printf("  %s to %s => %d hours %d minutes\n", $start, $end, $hours, $minutes);
+
+		$total += $delta;
+
+	}
+	close ( TRACK );
+
+	my $t = $total;
+	my $hours = $t / 3600;
+	$t = $total % 3600;
+	my $minutes = $t / 60;
+
+	printf("\nTotal: %d hours %d minutes\n", $hours, $minutes);
+}	
 
 ############################################################
 
@@ -469,12 +511,56 @@ elsif ( ( $command eq "projects" ) || ( $command eq "list" )  )
 	printf("Currently tracked project names:\n\n");
 	my $current = get_current_id();
 
-	foreach my $id ( keys $tracks )
+	foreach my $id ( keys %$tracks )
 	{
 		printf(" %s %s\n", ($id eq $current ? ">" : " " ),$tracks->{$id} );
 	}
 	print("\n");
 }
+elsif ( $command eq "report" )
+{
+
+	my ( undef, $title ) = parse_arguments(START);
+
+	my $track = undef;
+
+	if ( $title )
+	{
+		$track = get_track_id( $title );
+	}
+	else
+	{
+		$track = get_last_id();
+	}
+
+	if ( not $track )
+	{
+		printf ("Unable to get info for that track\n");
+		exit(1);
+	}
+
+
+	my $activities = get_tracks( $track );
+	if ( keys %$activities )
+	{
+		printf("# Reporting for sub-task/activities:\n\n");
+		foreach my $id ( keys %$activities )
+		{
+			report( $id, $track );
+			printf("# --------------------------------------------------------------\n");
+			print("\n");
+		}
+	}
+
+	printf("# Reporting for main track/project/task\n");
+	report($track);
+	printf("\n# ==============================================================\n\n");
+
+
+	print("# End of report\n");
+
+}
+
 elsif ( $command eq "edit" )
 {
 

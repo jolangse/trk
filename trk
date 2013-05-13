@@ -1,4 +1,25 @@
 #!/usr/bin/perl
+#
+# Copyright © Jon Langseth
+# 
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+# 
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
 use Time::Local;
 use Digest::MD5  qw(md5_hex);
 use File::Basename;
@@ -320,9 +341,10 @@ sub close_track ($;$)
 }
 
 
-sub report ($;$)
+sub report ($$;$)
 {	
 	my $current = shift;
+	my $silent = shift;
 	my $trk_id = shift;
 	my $wrk_dir = $trk_dir;	
 	$wrk_dir = $trk_dir . "/" . $trk_id if $trk_id;
@@ -330,7 +352,7 @@ sub report ($;$)
 	my $total = 0;
 
 	my $name = get_track_name( $current, $trk_id );
-	printf("# Report for '%s':\n\n", $name);
+	printf("# Report for '%s':\n\n", $name) unless $silent;
 
 	open (TRACK, "<" . $wrk_dir . "/" . $current . "/tracking" ) or die ("Unable to open file, $!");
 	while ( <TRACK> )
@@ -342,24 +364,20 @@ sub report ($;$)
 		my $t_end = str2time( $end );
 		my $delta = $t_end - $t_start;
 
-		my $t = $delta;
-		my $hours = $t / 3600;
-		$t = $delta % 3600;
-		my $minutes = $t / 60;
-
-		printf("  %s to %s => %d hours %d minutes\n", $start, $end, $hours, $minutes);
-
+		if ( not $silent )
+		{
+			my $t = $delta;
+			my $hours = $t / 3600;
+			$t = $delta % 3600;
+			my $minutes = $t / 60;
+			printf("  %s to %s => %d hours %d minutes\n", $start, $end, $hours, $minutes);
+		}
 		$total += $delta;
 
 	}
 	close ( TRACK );
+	return $total;
 
-	my $t = $total;
-	my $hours = $t / 3600;
-	$t = $total % 3600;
-	my $minutes = $t / 60;
-
-	printf("\nTotal: %d hours %d minutes\n", $hours, $minutes);
 }	
 
 ############################################################
@@ -526,7 +544,27 @@ elsif ( ( $command eq "projects" ) || ( $command eq "list" )  )
 elsif ( $command eq "report" )
 {
 
+	my $format = "standard";
+	my $output = 0;
+
+        if (( $#ARGV >= 1) && 
+	( ( $ARGV[1] eq "standard" )
+	|| ( $ARGV[1] eq "terse" )
+	|| ( $ARGV[1] eq "verbose" )
+	|| ( $ARGV[1] eq "details" ) ) )
+	{
+		$format = $ARGV[1];
+		shift @ARGV;
+	}
+
+	$output = 0 if $format eq "terse";
+	$output = 1 if $format eq "standard";
+	$output = 2 if $format eq "verbose";
+	$output = 3 if $format eq "details";
+
 	my ( undef, $title ) = parse_arguments(START);
+
+	printf("Report format: %s\nTitle:         %s\n", $format, $title);
 
 	my $track = undef;
 
@@ -545,27 +583,44 @@ elsif ( $command eq "report" )
 		exit(1);
 	}
 
+	my $total = 0;
+	my $subtotals = 0;
 
 	my $activities = get_tracks( $track );
 	if ( keys %$activities )
 	{
-		printf("# Reporting for sub-task/activities:\n\n");
+		printf("# Reporting for sub-task/activities:\n\n") if $output >= 2;
 
 		foreach my $id ( sort { $activities->{$a} cmp $activities->{$b} || $a cmp $b } keys %$activities )
 		#foreach my $id ( keys %$activities )
 		{
-			report( $id, $track );
-			printf("# --------------------------------------------------------------\n");
-			print("\n");
+			$subtotals += report( $id, ( $output >= 2 ? 0 : 1 ), $track );
+			printf("# --------------------------------------------------------------\n\n") if $output >= 2;
 		}
 	}
 
-	printf("# Reporting for main track/project/task\n");
-	report($track);
-	printf("\n# ==============================================================\n\n");
+	printf("# Reporting for main track/project/task\n") if $output >= 2;
+	$total += report($track, ( ( $output >= 1 ? 0 : 1 ) ) );
+	printf("\n# ==============================================================\n\n") if $output >= 2;
+	print("\n") if $output >= 1;
 
 
-	print("# End of report\n");
+	my $t = $total;
+	my $hours = $t / 3600;
+	$t = $total % 3600;
+	my $minutes = $t / 60;
+
+	printf("Total: %d hours %d minutes\n", $hours, $minutes);
+	if ( $output >= 2 )
+	{
+		my $t = $subtotals;
+		my $hours = $t / 3600;
+		$t = $subtotals % 3600;
+		my $minutes = $t / 60;
+		printf("Time logged on tasks: %d hours %d minutes\n", $hours, $minutes);
+	}
+
+	print("# End of report\n") if $output >= 1;
 
 }
 

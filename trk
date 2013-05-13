@@ -44,13 +44,17 @@ use constant {
 sub help
 {
 	my $code = shift;
-	printf("It seems you require assistance\n");
 
-	if ( $code )
-	{
-		printf("How to start\n") if $code == START;
-		printf("How to time\n")  if $code == TIMEFORMAT;
-	}
+	printf("Error in invocation. Syntax summary:\n\n");
+	printf("  %s {start|on} [at yyyy-mm-dd hh:mm] <trackname>\n", $0);
+	printf("  %s {stop|off} [at yyyy-mm-dd hh:mm] \n", $0);
+	printf("  %s {activity|task} [at yyyy-mm-dd hh:mm] <taskname>\n", $0);
+	printf("  %s main [at yyyy-mm-dd hh:mm]\n", $0);
+	printf("  %s {projects|list} [verbose]\n", $0);
+	printf("  %s report [{terse|standard|verbose|details}] [<trackname>]\n", $0);
+	printf("  %s edit <trackname>\n", $0);
+	printf("\nSee README.txt for more information\n");
+
 	exit(-1);
 }
 

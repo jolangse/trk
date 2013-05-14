@@ -60,7 +60,7 @@ trk list [verbose]
 trk projects [verbose]
 
    Lists all known project names. If a project/track is currently
-   active, thata project will be indicated with a chevron (>).
+   active, that project will be indicated with a chevron (>).
    Adding verbose to the command will display ID hashes along
    with the project/track names.
 
@@ -82,6 +82,15 @@ trk main
 trk main at <YYYY-MM-DD hh:mm>
 
   Stops tracking ongoing activity, and keeps tracking project.
+
+trk tasks [verbose]
+trk activities [verbose]
+
+   Lists all known task/activity names for current project/track.
+   If a given sub-task/activity is currently active, that project 
+   will be indicated with a chevron (>).
+   Adding verbose to the command will display ID hashes along
+   with the activity/task names.
 
 trk status
 

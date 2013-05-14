@@ -571,6 +571,7 @@ elsif ( $command eq "main" )
 		printf("Stopped tracking of '%s' at %s\n\n", $title, scalar localtime $stop_time);
 	}
 }
+#### Mark
 elsif ( ( $command eq "projects" ) || ( $command eq "list" )  )
 {
 	# Todo/future extensions:
@@ -586,6 +587,45 @@ elsif ( ( $command eq "projects" ) || ( $command eq "list" )  )
 	{
 	
 		if (( $#ARGV >= 1) && ( $ARGV[1] eq "verbose" ))
+		{
+			printf(" %s %s %s\n", ($id eq $current ? ">" : " " ), $id , $tracks->{$id});
+		}
+		else
+		{
+			printf(" %s %s\n", ($id eq $current ? ">" : " " ),$tracks->{$id} );
+		}
+	}
+	print("\n");
+}
+#### Mark
+elsif ( ( $command eq "activities" ) || ( $command eq "tasks" )  )
+{
+	# Todo/future extensions:
+	# TODO: Sort list of names alphabetically
+	# TODO: Get total-hours for projects
+	# TODO:
+
+
+	my $trk_id = get_current_id();
+	if ( not $trk_id )
+	{
+		printf("Starting a task/activity requires an active main track.\n");
+		exit(1);
+	}
+
+	my $verbose = (( $#ARGV >= 1) && ( $ARGV[1] eq "verbose" ));
+
+	my $tracks = get_tracks( $trk_id );
+	printf("Current track is '%s'\n", get_track_name( $trk_id ));
+	printf("Track ID for for current track is %s\n", $trk_id) if $verbose;
+	printf("Currently tracked activities/tasks for track '%s':\n\n", get_track_name( $trk_id ));
+	my $current = get_current_id( $trk_id );
+
+	#foreach my $id ( keys %$tracks )
+	foreach my $id ( sort { $tracks->{$a} cmp $tracks->{$b} || $a cmp $b } keys %$tracks  )
+	{
+	
+		if ( $verbose )
 		{
 			printf(" %s %s %s\n", ($id eq $current ? ">" : " " ), $id , $tracks->{$id});
 		}

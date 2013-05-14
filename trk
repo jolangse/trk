@@ -369,6 +369,8 @@ sub report ($$;$)
 	my $name = get_track_name( $current, $trk_id );
 	printf("# Report for '%s':\n\n", $name) unless $silent;
 
+	my $check = get_current_id( $trk_id );
+
 	open (TRACK, "<" . $wrk_dir . "/" . $current . "/tracking" ) or die ("Unable to open file, $!");
 	while ( <TRACK> )
 	{
@@ -385,6 +387,17 @@ sub report ($$;$)
 		}
 		$total += $delta;
 
+		if ( $check eq $current )
+		{
+			my $t;
+			if ( $t = current_starttime( $trk_id )  )
+			{
+				my $delta = time - $t;
+				printf("  %s to NOW (active)     => %s\n", time2str( $t ), delta2str( $delta ) ) if not $silent;
+				$total += $delta;
+			}
+		}
+
 	}
 	close ( TRACK );
 	return $total;
@@ -400,13 +413,15 @@ sub current_starttime (;$)
 	my $line = undef;
 
 	my $current = get_current_id( $trk_id );
+	return 0 if not $current;
+
 	open (TRACK, "<" . $wrk_dir . "/" . $current . "/tracking" ) or die ("Unable to open file, $!");
 	while ( <TRACK> )
 	{
 		$line = $_;
 	}
 	close ( TRACK );
-	return 0 if not $line =~ m/\[(\d\d\d\d-\d\d-\d\d \d\d:\d\d)\]/;
+	return 0 if not $line =~ m/^\[(\d\d\d\d-\d\d-\d\d \d\d:\d\d)\]$/;
 	return str2time($1);
 }
 

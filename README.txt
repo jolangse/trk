@@ -23,6 +23,9 @@ Example session:
   # Return from sub-task, keep tracking the main project/activity:
   trk main
 
+  # Check what is currently going on
+  trk status
+
   # Stop tracking
   trk stop
 
@@ -80,6 +83,13 @@ trk main at <YYYY-MM-DD hh:mm>
 
   Stops tracking ongoing activity, and keeps tracking project.
 
+trk status
+
+  Displays current project, charged customer (if any),
+  start time for this session, time spent on this session,
+  time spent on project total,
+  current activity with start time and time spent this session.
+
 trk report 
 trk report terse <project>
 trk report standard <project>
@@ -89,6 +99,8 @@ tkr report details <project>
    Gives a tracking report for the given project.
    Using "report" with no options provide a standard report for
    the last (or current) project tracked as a shortcut.
+   Note: reports include currently active session. There is currently
+   no plan to add complexity by adding an option to filter that out..
 
    Terse reports include:
      * project name
@@ -127,14 +139,6 @@ trk tasks
 trk activities
 
    Lists all known task/activity names for currently active project/track
-
-trk status
-
-  Displays current project, charged customer (if any),
-  start time for this session, time spent on this session,
-  time spent on project total,
-  current activity with start time and time spent this session.
-
 
 trk note Comment will be timestamped
 

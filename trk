@@ -387,19 +387,21 @@ sub report ($$;$)
 		}
 		$total += $delta;
 
-		if ( $check eq $current )
-		{
-			my $t;
-			if ( $t = current_starttime( $trk_id )  )
-			{
-				my $delta = time - $t;
-				printf("  %s to NOW (active)     => %s\n", time2str( $t ), delta2str( $delta ) ) if not $silent;
-				$total += $delta;
-			}
-		}
 
 	}
 	close ( TRACK );
+
+	if ( $check eq $current )
+	{
+		my $t;
+		if ( $t = current_starttime( $trk_id )  )
+		{
+			my $delta = time - $t;
+			printf("  %s to NOW (active)     => %s\n", time2str( $t ), delta2str( $delta ) ) if not $silent;
+			$total += $delta;
+		}
+	}
+
 	return $total;
 
 }	

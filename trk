@@ -519,7 +519,15 @@ elsif ( ( $command eq "projects" ) || ( $command eq "list" )  )
 	#foreach my $id ( keys %$tracks )
 	foreach my $id ( sort { $tracks->{$a} cmp $tracks->{$b} || $a cmp $b } keys %$tracks  )
 	{
-		printf(" %s %s\n", ($id eq $current ? ">" : " " ),$tracks->{$id} );
+	
+		if (( $#ARGV >= 1) && ( $ARGV[1] eq "verbose" ))
+		{
+			printf(" %s %s %s\n", ($id eq $current ? ">" : " " ), $id , $tracks->{$id});
+		}
+		else
+		{
+			printf(" %s %s\n", ($id eq $current ? ">" : " " ),$tracks->{$id} );
+		}
 	}
 	print("\n");
 }

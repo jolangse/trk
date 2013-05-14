@@ -1,4 +1,25 @@
 #!/usr/bin/perl
+#
+# Copyright © Jon Langseth
+# 
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+# 
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
 use Time::Local;
 use Digest::MD5  qw(md5_hex);
 use File::Basename;
@@ -23,13 +44,18 @@ use constant {
 sub help
 {
 	my $code = shift;
-	printf("It seems you require assistance\n");
 
-	if ( $code )
-	{
-		printf("How to start\n") if $code == START;
-		printf("How to time\n")  if $code == TIMEFORMAT;
-	}
+	printf("Error in invocation. Syntax summary:\n\n");
+	printf("  %s {start|on} [at yyyy-mm-dd hh:mm] <trackname>\n", $0);
+	printf("  %s {stop|off} [at yyyy-mm-dd hh:mm] \n", $0);
+	printf("  %s {activity|task} [at yyyy-mm-dd hh:mm] <taskname>\n", $0);
+	printf("  %s main [at yyyy-mm-dd hh:mm]\n", $0);
+	printf("  %s {projects|list} [verbose]\n", $0);
+	printf("  %s report [{terse|standard|verbose|details}] [<trackname>]\n", $0);
+	printf("  %s edit <trackname>\n", $0);
+	printf("  %s status\n", $0);
+	printf("\nSee README.txt for more information\n");
+
 	exit(-1);
 }
 
@@ -83,6 +109,16 @@ sub time2str ($)
 {
 	my $t = shift;
 	return strftime("%Y-%m-%d %H:%M", localtime($t));
+}
+
+sub delta2str ($)
+{
+	my $delta = shift;
+	my $t = $delta;
+	my $hours = $t / 3600;
+	$t = $delta % 3600;
+	my $minutes = $t / 60;
+	return sprintf("%d hours %d minutes", $hours, $minutes);
 }
 
 sub parse_arguments ($)
@@ -320,9 +356,10 @@ sub close_track ($;$)
 }
 
 
-sub report ($;$)
+sub report ($$;$)
 {	
 	my $current = shift;
+	my $silent = shift;
 	my $trk_id = shift;
 	my $wrk_dir = $trk_dir;	
 	$wrk_dir = $trk_dir . "/" . $trk_id if $trk_id;
@@ -330,7 +367,9 @@ sub report ($;$)
 	my $total = 0;
 
 	my $name = get_track_name( $current, $trk_id );
-	printf("# Report for '%s':\n\n", $name);
+	printf("# Report for '%s':\n\n", $name) unless $silent;
+
+	my $check = get_current_id( $trk_id );
 
 	open (TRACK, "<" . $wrk_dir . "/" . $current . "/tracking" ) or die ("Unable to open file, $!");
 	while ( <TRACK> )
@@ -342,25 +381,51 @@ sub report ($;$)
 		my $t_end = str2time( $end );
 		my $delta = $t_end - $t_start;
 
-		my $t = $delta;
-		my $hours = $t / 3600;
-		$t = $delta % 3600;
-		my $minutes = $t / 60;
-
-		printf("  %s to %s => %d hours %d minutes\n", $start, $end, $hours, $minutes);
-
+		if ( not $silent )
+		{
+			printf("  %s to %s => %s\n", $start, $end, delta2str($delta) );
+		}
 		$total += $delta;
+
 
 	}
 	close ( TRACK );
 
-	my $t = $total;
-	my $hours = $t / 3600;
-	$t = $total % 3600;
-	my $minutes = $t / 60;
+	if ( $check eq $current )
+	{
+		my $t;
+		if ( $t = current_starttime( $trk_id )  )
+		{
+			my $delta = time - $t;
+			printf("  %s to NOW (active)     => %s\n", time2str( $t ), delta2str( $delta ) ) if not $silent;
+			$total += $delta;
+		}
+	}
 
-	printf("\nTotal: %d hours %d minutes\n", $hours, $minutes);
+	return $total;
+
 }	
+
+sub current_starttime (;$)
+{
+	my $trk_id = shift;
+	my $wrk_dir = $trk_dir;	
+	$wrk_dir = $trk_dir . "/" . $trk_id if $trk_id;
+
+	my $line = undef;
+
+	my $current = get_current_id( $trk_id );
+	return 0 if not $current;
+
+	open (TRACK, "<" . $wrk_dir . "/" . $current . "/tracking" ) or die ("Unable to open file, $!");
+	while ( <TRACK> )
+	{
+		$line = $_;
+	}
+	close ( TRACK );
+	return 0 if not $line =~ m/^\[(\d\d\d\d-\d\d-\d\d \d\d:\d\d)\]$/;
+	return str2time($1);
+}
 
 ############################################################
 
@@ -534,7 +599,27 @@ elsif ( ( $command eq "projects" ) || ( $command eq "list" )  )
 elsif ( $command eq "report" )
 {
 
+	my $format = "standard";
+	my $output = 0;
+
+        if (( $#ARGV >= 1) && 
+	( ( $ARGV[1] eq "standard" )
+	|| ( $ARGV[1] eq "terse" )
+	|| ( $ARGV[1] eq "verbose" )
+	|| ( $ARGV[1] eq "details" ) ) )
+	{
+		$format = $ARGV[1];
+		shift @ARGV;
+	}
+
+	$output = 0 if $format eq "terse";
+	$output = 1 if $format eq "standard";
+	$output = 2 if $format eq "verbose";
+	$output = 3 if $format eq "details";
+
 	my ( undef, $title ) = parse_arguments(START);
+
+	printf("Report format: %s\nTitle:         %s\n", $format, $title);
 
 	my $track = undef;
 
@@ -553,30 +638,74 @@ elsif ( $command eq "report" )
 		exit(1);
 	}
 
+	my $total = 0;
+	my $subtotals = 0;
 
 	my $activities = get_tracks( $track );
 	if ( keys %$activities )
 	{
-		printf("# Reporting for sub-task/activities:\n\n");
+		printf("# Reporting for sub-task/activities:\n\n") if $output >= 2;
 
 		foreach my $id ( sort { $activities->{$a} cmp $activities->{$b} || $a cmp $b } keys %$activities )
 		#foreach my $id ( keys %$activities )
 		{
-			report( $id, $track );
-			printf("# --------------------------------------------------------------\n");
-			print("\n");
+			$subtotals += report( $id, ( $output >= 2 ? 0 : 1 ), $track );
+			printf("# --------------------------------------------------------------\n\n") if $output >= 2;
 		}
 	}
 
-	printf("# Reporting for main track/project/task\n");
-	report($track);
-	printf("\n# ==============================================================\n\n");
+	printf("# Reporting for main track/project/task\n") if $output >= 2;
+	$total += report($track, ( ( $output >= 1 ? 0 : 1 ) ) );
+	printf("\n# ==============================================================\n\n") if $output >= 2;
+	print("\n") if $output >= 1;
 
 
-	print("# End of report\n");
+	printf("Total: %s\n", delta2str($total) );
+
+	if ( $output >= 2 )
+	{
+		printf("Time logged on tasks: %s\n", delta2str($subtotals) );
+	}
+
+	print("# End of report\n") if $output >= 1;
 
 }
+elsif ( $command eq "status" )
+{
 
+	my $trk_id = get_current_id();
+	if ( not $trk_id )
+	{
+		printf("Not currently tracking anything.\n");
+		$trk_id = get_last_id();
+		if ( $trk_id )
+		{
+			printf("Last track was: %s\n", get_track_name( $trk_id ) );
+		}	
+		exit(1);
+	}
+	printf("Currently tracking: %s\n", get_track_name( $trk_id ) );
+	my $t = current_starttime();
+	printf("Tracking started at %s\n", scalar localtime $t);
+	printf("Time elapsed since start of session: %s\n", delta2str(time - $t) );
+
+	my $activity = get_current_id( $trk_id );
+	if ( $activity )
+	{
+		printf("\nCurrent sub-task/activity is: %s\n", get_track_name( $activity, $trk_id ) );
+		my $t = current_starttime($trk_id);
+		printf("Activity started at %s\n", scalar localtime $t);
+		printf("Time elapsed since start of activity: %s\n", delta2str(time - $t) );
+	}
+	else
+	{
+		$activity = get_last_id( $trk_id );
+		if ( $activity )
+		{
+			printf("\nLast track was: %s\n", get_track_name( $activity, $trk_id ) );
+		}	
+	}
+}
 elsif ( $command eq "edit" )
 {
 
